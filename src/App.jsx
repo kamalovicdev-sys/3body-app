@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, Suspense } from 'react';
+import React, { useRef, useState, useMemo, Suspense, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Trail, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
@@ -81,7 +81,6 @@ const PhysicsWorld = ({ setEra, statsRef }) => {
     const bodies = bodiesRef.current;
     const accelerations = bodies.map(() => new THREE.Vector3(0, 0, 0));
 
-    // Fizika: Tortishish kuchlari
     for (let i = 0; i < bodies.length; i++) {
       for (let j = 0; j < bodies.length; j++) {
         if (i === j) continue;
@@ -92,7 +91,6 @@ const PhysicsWorld = ({ setEra, statsRef }) => {
         accelerations[i].add(direction);
       }
 
-      // Orbitadan qochib ketmaslik uchun (tashqi chegara)
       if (bodies[i].id === 'earth') {
         const distFromCenter = bodies[i].pos.length();
         if (distFromCenter > 35) {
@@ -104,7 +102,6 @@ const PhysicsWorld = ({ setEra, statsRef }) => {
       }
     }
 
-    // Pozitsiya va tezliklarni yangilash
     for (let i = 0; i < bodies.length; i++) {
       bodies[i].vel.add(accelerations[i].multiplyScalar(dt));
       bodies[i].pos.add(bodies[i].vel.clone().multiplyScalar(dt));
@@ -115,7 +112,6 @@ const PhysicsWorld = ({ setEra, statsRef }) => {
       controlsRef.current.update();
     }
 
-    // === MASOFA VA HARORATNI HISOBLASH ===
     const earthPos = bodies[0].pos;
     const d1 = earthPos.distanceTo(bodies[1].pos);
     const d2 = earthPos.distanceTo(bodies[2].pos);
@@ -123,33 +119,31 @@ const PhysicsWorld = ({ setEra, statsRef }) => {
 
     const minDistToSun = Math.min(d1, d2, d3);
 
-    // Harorat formulasi
     const heat1 = 8000 / (d1 * d1 + 0.1);
     const heat2 = 8000 / (d2 * d2 + 0.1);
     const heat3 = 8000 / (d3 * d3 + 0.1);
     let currentTemp = -270 + heat1 + heat2 + heat3;
     currentTemp = Math.max(-273, currentTemp);
 
-    // === YANGI DYNAMIC SCIENCE MA'LUMOTLAR DESIGNI ===
     if (statsRef.current) {
       const tempColor = currentTemp > 50 ? '#ff4444' : currentTemp < -50 ? '#44ccff' : '#00ffaa';
 
+      // clamp() yordamida shriftlarni ekran o'lchamiga moslashuvchan qildik
       statsRef.current.innerHTML = `
-        <div style="font-size: 14px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">Surface Temperature</div>
-        <div style="font-size: 32px; font-weight: bold; margin-bottom: 20px; color: ${tempColor}; font-family: monospace;">
-          ${currentTemp.toFixed(1)} <span style="font-size: 18px; font-weight: normal; color: #ccc;">°C </span>
+        <div style="font-size: clamp(10px, 2vw, 14px); color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">Surface Temperature</div>
+        <div style="font-size: clamp(24px, 5vw, 32px); font-weight: bold; margin-bottom: 15px; color: ${tempColor}; font-family: monospace;">
+          ${currentTemp.toFixed(1)} <span style="font-size: clamp(14px, 3vw, 18px); font-weight: normal; color: #ccc;">°C </span>
         </div>
         
-        <div style="font-size: 14px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Distances</div>
-        <div style="font-size: 16px; line-height: 1.8; font-family: monospace;">
-          <div style="display: flex; justify-content: space-between;"><span style="color: #ffaa00; text-transform: uppercase; letter-spacing: 1px;">Alpha Centauri A:</span> <b>${(d1 * 10).toFixed(1)}</b> mln km</div>
-          <div style="display: flex; justify-content: space-between;"><span style="color: #ff4400; text-transform: uppercase; letter-spacing: 1px;">Alpha Centauri B:</span> <b>${(d2 * 10).toFixed(1)}</b> mln km</div>
-          <div style="display: flex; justify-content: space-between;"><span style="color: white; text-transform: uppercase; letter-spacing: 1px;">Proxima Centauri:</span> <b>${(d3 * 10).toFixed(1)}</b> mln km</div>
+        <div style="font-size: clamp(10px, 2vw, 14px); color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Distances</div>
+        <div style="font-size: clamp(12px, 3vw, 16px); line-height: 1.6; font-family: monospace;">
+          <div style="display: flex; justify-content: space-between;"><span style="color: #ffaa00; text-transform: uppercase; letter-spacing: 1px;">Alpha Centauri A:</span> <b>${(d1 * 10).toFixed(1)}</b> <span style="font-size: 0.8em">mln km</span></div>
+          <div style="display: flex; justify-content: space-between;"><span style="color: #ff4400; text-transform: uppercase; letter-spacing: 1px;">Alpha Centauri B:</span> <b>${(d2 * 10).toFixed(1)}</b> <span style="font-size: 0.8em">mln km</span></div>
+          <div style="display: flex; justify-content: space-between;"><span style="color: white; text-transform: uppercase; letter-spacing: 1px;">Proxima Centauri:</span> <b>${(d3 * 10).toFixed(1)}</b> <span style="font-size: 0.8em">mln km</span></div>
         </div>
       `;
     }
 
-    // Davrlarni aniqlash: Ilmiy nomlar
     let currentEra = 'Stable Period';
     let targetBgColor = new THREE.Color('#050505');
     let targetAmbientIntensity = 0.1;
@@ -201,45 +195,68 @@ const PhysicsWorld = ({ setEra, statsRef }) => {
 };
 
 export default function App() {
-  const [era, setEra] = useState('🌍 STATUS: Stable period');
+  const [era, setEra] = useState('STATUS: Stable period');
   const statsRef = useRef(null);
+
+  // EKRAN O'LCHAMINI KUZATISH (RESPONSIVE UCHUN)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Xatolik to'g'rilandi: Endi ranglar inglizcha davr nomlariga moslashadi
+  const isDoomsday = era.includes('Doomsday');
+  const isFreeze = era.includes('Freeze');
 
   return (
     <div style={{ height: '100vh', width: '100vw', margin: 0, overflow: 'hidden', position: 'relative' }}>
 
-      {/* YANGI: CARD VA SCIENCE DIZAYNI */}
+      {/* RESPONSIVE CARD */}
       <div style={{
-        position: 'absolute', top: '20px', left: '20px', zIndex: 10,
-        color: 'white', fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, monospace',
-        padding: '25px',
-        backgroundColor: 'rgba(10, 15, 25, 0.9)', // To'q tech blue-ish grey fon
-        borderRadius: '8px', // Burchaklar o'tkirroq
-        // Chegara sivilizatsiya holatiga moslashadi, glow ko'proq
-        border: `2px solid ${era.includes('JAHANNAM') ? '#ff2200' : era.includes('MUZLIK') ? '#00eeff' : '#00ffaa'}`,
-        boxShadow: `0 0 20px ${era.includes('JAHANNAM') ? 'rgba(255, 34, 0, 0.5)' : era.includes('MUZLIK') ? 'rgba(0, 238, 255, 0.5)' : 'rgba(0, 255, 170, 0.3)'}`,
+        position: 'absolute',
+        // Telefonda pastda, kompyuterda tepada bo'ladi
+        top: isMobile ? 'auto' : '20px',
+        bottom: isMobile ? '20px' : 'auto',
+        left: isMobile ? '50%' : '20px',
+        transform: isMobile ? 'translateX(-50%)' : 'none', // Telefonda o'rtaga joylashadi
+        width: isMobile ? '90%' : 'auto',
+        minWidth: isMobile ? 'auto' : '320px',
+        maxWidth: '400px',
+        zIndex: 10,
+        color: 'white',
+        fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif, monospace',
+        padding: isMobile ? '15px 20px' : '25px', // Telefonda padding kichrayadi
+        backgroundColor: 'rgba(10, 15, 25, 0.85)',
+        borderRadius: '12px',
+        border: `2px solid ${isDoomsday ? '#ff2200' : isFreeze ? '#00eeff' : '#00ffaa'}`,
+        boxShadow: `0 0 20px ${isDoomsday ? 'rgba(255, 34, 0, 0.5)' : isFreeze ? 'rgba(0, 238, 255, 0.5)' : 'rgba(0, 255, 170, 0.3)'}`,
         transition: 'border 0.5s, box-shadow 0.5s',
-        minWidth: '320px',
-        textTransform: 'uppercase', // Ko'proq tech ko'rinish uchun
+        textTransform: 'uppercase',
+        backdropFilter: 'blur(5px)', // Orqa fonni biroz xiralashtirish (Glassmorphism)
       }}>
-        {/* Sarlavha yangilandi */}
-        <h2 style={{ margin: 0, fontSize: '16px', color: '#888', letterSpacing: '1px' }}>Trisolaris Simulation</h2>
+        <h2 style={{ margin: 0, fontSize: clampFontSize(isMobile, '12px', '16px'), color: '#888', letterSpacing: '1px' }}>
+          Trisolaris Simulation
+        </h2>
 
-        {/* Era ko'rinishi yangilandi */}
-        <p style={{ margin: '10px 0 20px 0', fontSize: '20px', fontWeight: 'bold', fontXamily: 'monospace',
-          color: era.includes('JAHANNAM') ? '#ff4444' : era.includes('MUZLIK') ? '#44ccff' : 'white'
+        <p style={{ margin: '8px 0 15px 0', fontSize: clampFontSize(isMobile, '16px', '20px'), fontWeight: 'bold', fontFamily: 'monospace',
+          color: isDoomsday ? '#ff4444' : isFreeze ? '#44ccff' : 'white'
         }}>
           {era}
         </p>
 
-        {/* Jonli ma'lumotlar shu yerga yoziladi */}
         <div ref={statsRef}></div>
       </div>
 
-      <Leva collapsed={false} titleBar={{ title: 'Boshqaruv' }} />
+      {/* Leva paneli telefonda avtomatik yig'ilgan bo'ladi */}
+      <Leva collapsed={isMobile} titleBar={{ title: 'Boshqaruv' }} />
 
-      <Canvas camera={{ position: [0, 25, 45], fov: 45 }}>
+      {/* Kamera telefonda biroz uzoqdan ko'rsatadi */}
+      <Canvas camera={{ position: isMobile ? [0, 35, 60] : [0, 25, 45], fov: 45 }}>
         <color attach="background" args={['#050505']} />
-        <Stars radius={200} depth={50} count={7000} factor={5} saturation={0} fade speed={1} />
+        <Stars radius={200} depth={50} count={isMobile ? 3000 : 7000} factor={5} saturation={0} fade speed={1} />
 
         <Suspense fallback={null}>
           <PhysicsWorld setEra={setEra} statsRef={statsRef} />
@@ -247,4 +264,9 @@ export default function App() {
       </Canvas>
     </div>
   );
+}
+
+// Yordamchi funksiya
+function clampFontSize(isMobile, min, max) {
+  return isMobile ? min : max;
 }
